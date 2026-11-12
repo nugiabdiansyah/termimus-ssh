@@ -48,6 +48,10 @@ regex = "1.10"
 [target.'cfg(not(any(target_os = "android", target_os = "ios")))'.dependencies]
 portable-pty = "0.8"
 
+# Fingerprint / face unlock on mobile (desktop uses src/biometric directly).
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri-plugin-biometric = "2"
+
 # `keyring` ships no default store for Android; lib.rs installs this one
 # (SharedPreferences encrypted with an Android Keystore key) at startup.
 [target.'cfg(target_os = "android")'.dependencies]

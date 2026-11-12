@@ -32,4 +32,11 @@ export const commonZh: typeof commonEn = {
   noOptionsAvailable: "无可用选项",
   noMatchesFor: "未找到与 \"{{query}}\" 匹配的项",
   backAgainToExit: "再按一次返回键退出",
+  // Android keep-alive notification: what is currently connected.
+  keepAliveTitle: "正在保持会话连接",
+  keepAliveSsh_one: "{{count}} 个 SSH 会话",
+  keepAliveSsh_other: "{{count}} 个 SSH 会话",
+  keepAliveSftp: "SFTP",
+  keepAliveTunnel_one: "{{count}} 个隧道",
+  keepAliveTunnel_other: "{{count}} 个隧道",
 };

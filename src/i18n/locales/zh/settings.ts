@@ -60,6 +60,8 @@ export const settingsZh: typeof settingsEn = {
     biometricsDesc: "在解锁或访问敏感凭据前提示进行生物特征识别验证。",
     biometricsAvailable: "可用",
     biometricsNotDetected: "在此设备上未检测到触控 ID 或生物识别传感器。",
+    biometricsTitleMobile: "生物识别解锁（指纹 / 面部）",
+    biometricsNotDetectedMobile: "此设备尚未录入指纹或面部。",
     masterPasswordSection: "主密码与维护",
     masterPasswordDesc: "轮换您的主密码 (所有凭据将自动重新加密) 或重置保险库。",
     changePasswordBtn: "修改主密码",

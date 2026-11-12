@@ -17,7 +17,9 @@ import androidx.core.app.NotificationCompat
  * tears down its sockets, which kills every live session. A foreground service
  * (with its mandatory ongoing notification) exempts the process from that. The
  * Rust side starts this service when the first session opens and stops it when
- * the last one closes (see `src-tauri/src/android_keepalive.rs`).
+ * the last one closes (see `src-tauri/src/android_keepalive.rs`). It re-sends
+ * the start intent whenever the set of sessions changes, so the notification
+ * always says what is currently connected.
  */
 class SessionKeepAliveService : Service() {
   override fun onBind(intent: Intent?): IBinder? = null
@@ -39,8 +41,8 @@ class SessionKeepAliveService : Service() {
     )
     val notification = NotificationCompat.Builder(this, CHANNEL_ID)
       .setSmallIcon(R.drawable.ic_stat_termimus)
-      .setContentTitle(getString(R.string.keepalive_title))
-      .setContentText(getString(R.string.keepalive_text))
+      .setContentTitle(intent?.getStringExtra(EXTRA_TITLE)?.takeIf { it.isNotBlank() } ?: getString(R.string.keepalive_title))
+      .setContentText(intent?.getStringExtra(EXTRA_SUMMARY)?.takeIf { it.isNotBlank() } ?: getString(R.string.keepalive_text))
       .setContentIntent(openApp)
       .setOngoing(true)
       .setShowWhen(false)
@@ -57,6 +59,10 @@ class SessionKeepAliveService : Service() {
   }
 
   companion object {
+    /** Title in the app's own language (it can differ from the device's). */
+    private const val EXTRA_TITLE = "title"
+    /** Detail line for the notification, e.g. "2 SSH sessions · SFTP". */
+    private const val EXTRA_SUMMARY = "summary"
     private const val CHANNEL_ID = "active-sessions"
     private const val NOTIFICATION_ID = 1
   }

@@ -1,0 +1,5 @@
+<resources>
+    <string name="keepalive_channel">活动会话</string>
+    <string name="keepalive_title">正在保持会话连接</string>
+    <string name="keepalive_text">SSH、SFTP 或端口转发处于活动状态</string>
+</resources>

@@ -12,8 +12,16 @@ const SERVICE_CLASS: &str = "com.termimus.app.SessionKeepAliveService";
 /// `Build.VERSION_CODES.O`: first release with `startForegroundService`.
 const API_O: i32 = 26;
 
-/// Turn the keep-alive service on or off. Safe to call repeatedly.
-pub fn set_active(active: bool) -> Result<(), String> {
+/// Intent extras carrying the notification's text; must match
+/// `SessionKeepAliveService.EXTRA_TITLE` / `EXTRA_SUMMARY`.
+const EXTRA_TITLE: &str = "title";
+const EXTRA_SUMMARY: &str = "summary";
+
+/// Turn the keep-alive service on or off. Safe to call repeatedly: starting
+/// an already-running service re-delivers the intent, which is how the
+/// notification text gets refreshed. `title` and `summary` come from the
+/// frontend so they follow the language chosen in the app, not the device's.
+pub fn set_active(active: bool, title: Option<&str>, summary: Option<&str>) -> Result<(), String> {
     let ctx = ndk_context::android_context();
     // SAFETY: Tauri initialises ndk-context with the process's JavaVM and a
     // live Context before any command can run; both outlive this call.
@@ -36,6 +44,18 @@ pub fn set_active(active: bool) -> Result<(), String> {
         if !active {
             env.call_method(&context, "stopService", "(Landroid/content/Intent;)Z", &[JValue::Object(&intent)])?;
             return Ok(());
+        }
+
+        for (name, text) in [(EXTRA_TITLE, title), (EXTRA_SUMMARY, summary)] {
+            let Some(text) = text.filter(|s| !s.is_empty()) else { continue };
+            let key = env.new_string(name)?;
+            let value = env.new_string(text)?;
+            env.call_method(
+                &intent,
+                "putExtra",
+                "(Ljava/lang/String;Ljava/lang/String;)Landroid/content/Intent;",
+                &[JValue::Object(&key), JValue::Object(&value)],
+            )?;
         }
 
         let sdk = env.get_static_field("android/os/Build$VERSION", "SDK_INT", "I")?.i()?;

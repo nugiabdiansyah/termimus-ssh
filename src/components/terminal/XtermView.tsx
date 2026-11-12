@@ -695,7 +695,14 @@ export function XtermView({ sessionId, hostId, visible, isFocused = true }: Xter
     e.stopPropagation();
     const hasSel = Boolean(termRef.current?.hasSelection());
     const x = Math.min(e.clientX, window.innerWidth - 220);
-    const y = Math.min(e.clientY, window.innerHeight - 380);
+    // Keep the menu inside the *visible* area. With a soft keyboard open that
+    // is the visual viewport, not the window: clamping to innerHeight put the
+    // lower half of the menu behind the keyboard.
+    const viewport = window.visualViewport;
+    const visibleTop = viewport?.offsetTop ?? 0;
+    const visibleBottom = viewport ? viewport.offsetTop + viewport.height : window.innerHeight;
+    const menuHeight = isMobile ? 300 : 380;
+    const y = Math.max(visibleTop + 8, Math.min(e.clientY, visibleBottom - menuHeight));
     setContextMenu({ x, y, hasSelection: hasSel });
   };
 
@@ -810,6 +817,24 @@ export function XtermView({ sessionId, hostId, visible, isFocused = true }: Xter
           setIsConnected(true);
           setConnected(sessionId, true);
           setConnectionError(null);
+
+          // The PTY was opened with the size measured when the tab mounted.
+          // The view may have been resized since (on mobile the soft keyboard
+          // opens right about now), and resizes sent before the session
+          // existed were dropped, so tell the server the size we have now.
+          const term = termRef.current;
+          if (term) {
+            try {
+              fitAddonRef.current?.fit();
+            } catch {
+              // keep the current size
+            }
+            if (term.cols >= 20 && term.rows >= 5) {
+              lastSizeRef.current = { cols: term.cols, rows: term.rows };
+              if (entry) entry.lastSize = { cols: term.cols, rows: term.rows };
+              api.resizeSsh(sessionId, term.cols, term.rows).catch(() => {});
+            }
+          }
         })
         .catch((e) => {
           const errStr = String(e);
@@ -1053,9 +1078,22 @@ export function XtermView({ sessionId, hostId, visible, isFocused = true }: Xter
 
     // Debounced resize observer to prevent layout thrashing and IPC flooding during animations (sidebar toggle, split dragging)
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;
+    let settleTimers: ReturnType<typeof setTimeout>[] = [];
     const handleResize = () => {
       if (resizeTimer) clearTimeout(resizeTimer);
+      settleTimers.forEach(clearTimeout);
+      settleTimers = [];
       resizeTimer = setTimeout(() => {
+        fitNow();
+        // A soft keyboard animates in and the safe-area insets change with
+        // it; a fit taken mid-way can be a row too tall, or a no-op while the
+        // renderer has no cell metrics yet. Re-check once things settle. These
+        // passes only talk to the server if the size actually changed.
+        settleTimers = [250, 800].map((delay) => setTimeout(fitNow, delay));
+      }, 50);
+    };
+    const fitNow = () => {
+      {
         if (!containerRef.current || !termRef.current || !fitAddonRef.current) return;
         const width = containerRef.current.clientWidth;
         const height = containerRef.current.clientHeight;
@@ -1085,7 +1123,7 @@ export function XtermView({ sessionId, hostId, visible, isFocused = true }: Xter
         } catch {
           // ignore fit during layout animation
         }
-      }, 50);
+      }
     };
 
     const resizeObserver = new ResizeObserver(() => {
@@ -1095,6 +1133,7 @@ export function XtermView({ sessionId, hostId, visible, isFocused = true }: Xter
 
     return () => {
       if (resizeTimer) clearTimeout(resizeTimer);
+      settleTimers.forEach(clearTimeout);
       resizeObserver.disconnect();
       // Remove wrapper from container so it can be re-appended on next mount if moved
       if (entry && containerRef.current && entry.element.parentElement === containerRef.current) {
@@ -1192,7 +1231,7 @@ export function XtermView({ sessionId, hostId, visible, isFocused = true }: Xter
       <div
         ref={containerRef}
         onContextMenu={handleContextMenu}
-        className={isMobile ? "absolute inset-x-0 top-0 bottom-10 p-2" : "absolute inset-0 p-2"}
+        className={isMobile ? "absolute inset-x-0 top-0 bottom-10 overflow-hidden p-2" : "absolute inset-0 p-2"}
         style={{ backgroundColor: themeBg }}
       />
 
@@ -1202,8 +1241,17 @@ export function XtermView({ sessionId, hostId, visible, isFocused = true }: Xter
       {/* Right-Click Terminal Context Menu */}
       {contextMenu && (
         <div
-          className="fixed z-50 min-w-[210px] rounded-xl border border-[var(--border)] bg-[var(--surface-high)]/95 p-1 text-xs text-[var(--text-primary)] shadow-2xl backdrop-blur-md select-none animate-in fade-in zoom-in-95 duration-75"
-          style={{ left: `${contextMenu.x}px`, top: `${contextMenu.y}px` }}
+          className={`fixed z-50 min-w-[210px] rounded-xl border border-[var(--border)] bg-[var(--surface-high)]/95 p-1 text-xs text-[var(--text-primary)] shadow-2xl backdrop-blur-md select-none animate-in fade-in zoom-in-95 duration-75 ${
+            // Mobile: no keyboard shortcuts to advertise, and never taller than the visible area.
+            isMobile ? "overflow-y-auto [&_span.font-mono]:hidden" : ""
+          }`}
+          style={{
+            left: `${contextMenu.x}px`,
+            top: `${contextMenu.y}px`,
+            maxHeight: isMobile
+              ? `${(window.visualViewport ? window.visualViewport.offsetTop + window.visualViewport.height : window.innerHeight) - contextMenu.y - 8}px`
+              : undefined,
+          }}
           onPointerDown={(e) => e.stopPropagation()}
         >
           {/* Copy */}
@@ -1353,6 +1401,9 @@ export function XtermView({ sessionId, hostId, visible, isFocused = true }: Xter
 
           <div className="my-1 h-[1px] bg-[var(--border)]" />
 
+          {/* Split panes do not fit a phone screen: desktop only. */}
+          {!isMobile && (
+          <>
           {/* Split Right */}
           <button
             onClick={() => {
@@ -1382,6 +1433,8 @@ export function XtermView({ sessionId, hostId, visible, isFocused = true }: Xter
           </button>
 
           <div className="my-1 h-[1px] bg-[var(--border)]" />
+          </>
+          )}
 
           {/* Reconnect */}
           <button

@@ -32,4 +32,11 @@ export const commonId: typeof commonEn = {
   noOptionsAvailable: "Tidak ada pilihan tersedia",
   noMatchesFor: "Tidak ada yang cocok untuk \"{{query}}\"",
   backAgainToExit: "Tekan kembali sekali lagi untuk keluar",
+  // Android keep-alive notification: what is currently connected.
+  keepAliveTitle: "Menjaga sesi tetap tersambung",
+  keepAliveSsh_one: "{{count}} sesi SSH",
+  keepAliveSsh_other: "{{count}} sesi SSH",
+  keepAliveSftp: "SFTP",
+  keepAliveTunnel_one: "{{count}} tunnel",
+  keepAliveTunnel_other: "{{count}} tunnel",
 };

@@ -7,4 +7,6 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <!-- Matches the app's canvas colour (index.css: canvas, #0a0e14). -->
+    <color name="app_canvas">#FF0A0E14</color>
 </resources>

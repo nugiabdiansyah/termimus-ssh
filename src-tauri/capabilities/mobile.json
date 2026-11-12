@@ -4,5 +4,5 @@
   "description": "Extra permissions for the Android / iOS builds",
   "platforms": ["android", "iOS"],
   "windows": ["main"],
-  "permissions": ["core:app:allow-exit"]
+  "permissions": ["core:app:allow-exit", "biometric:default"]
 }

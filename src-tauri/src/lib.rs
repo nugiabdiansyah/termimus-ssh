@@ -45,6 +45,11 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init());
 
+    // Fingerprint / face prompt on Android and iOS; desktop biometrics live
+    // in src/biometric and need no plugin.
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_biometric::init());
+
     // Desktop keeps its data under the OS config dir, known before the app
     // starts. Mobile apps are sandboxed: the only writable location is the
     // app data dir, which Tauri can resolve only once the app handle exists.

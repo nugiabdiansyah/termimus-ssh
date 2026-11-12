@@ -50,9 +50,16 @@ let saveSecretsTimer: ReturnType<typeof setTimeout> | null = null;
 let legacySecrets: { authToken: string; syncPassword: string } | null = null;
 
 function getDefaultDeviceName() {
-  const platform = navigator.userAgent.includes("Linux")
+  const ua = navigator.userAgent;
+  // Order matters: Android's user agent also says "Linux", and an iPad's can
+  // say "Mac".
+  const platform = /Android/i.test(ua)
+    ? "Android"
+    : /iPhone|iPad|iPod/i.test(ua)
+    ? "iOS"
+    : ua.includes("Linux")
     ? "Linux"
-    : navigator.userAgent.includes("Mac")
+    : ua.includes("Mac")
     ? "macOS"
     : "Desktop";
   return `Termimus ${platform}`;

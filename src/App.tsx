@@ -58,6 +58,7 @@ function App() {
 
   const isUnlocked = useVaultStore((s) => s.isUnlocked);
   const isAppLocked = useVaultStore((s) => s.isAppLocked);
+  const vaultStatusLoaded = useVaultStore((s) => s.hasLoaded);
   const refreshVault = useVaultStore((s) => s.refresh);
   const refreshHosts = useHostStore((s) => s.refresh);
   const refreshKeychain = useKeychainStore((s) => s.refresh);
@@ -252,7 +253,10 @@ function App() {
       {isAppLocked && <AppLockScreen />}
 
       {/* Vault Setup/Unlock Modal (superseded by AppLockScreen while app-locked) */}
-      {!isUnlocked && !isAppLocked && <VaultModal />}
+      {/* Not before the first status load: until then the store only holds
+          placeholders, and showing the modal would flash "Create Master
+          Password" at users who already have a vault. */}
+      {vaultStatusLoaded && !isUnlocked && !isAppLocked && <VaultModal />}
 
       {/* Host Create/Edit Modal */}
       <HostModal onOpenKeychain={openKeychain} />

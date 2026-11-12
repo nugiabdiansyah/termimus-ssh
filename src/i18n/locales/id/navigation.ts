@@ -31,6 +31,8 @@ export const navigationId: typeof navigationEn = {
   closeTab: "Tutup Tab",
   closeOtherTabs: "Tutup Tab Lainnya",
   closeTabsToRight: "Tutup Tab di Sebelah Kanan",
+  // Mobile: header button and sheet listing every open session.
+  sessions: "Sesi",
   // Compact labels for the mobile bottom navigation bar.
   short: { hosts: "Host", keychain: "Kunci", sftp: "SFTP", snippets: "Cuplikan", tunnels: "Tunnel", settings: "Setelan" },
 };

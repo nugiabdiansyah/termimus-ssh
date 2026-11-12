@@ -1,4 +1,10 @@
 import { invoke } from "@tauri-apps/api/core";
+import { authenticate as biometricAuthenticate, checkStatus as biometricStatus } from "@tauri-apps/plugin-biometric";
+
+// Mobile has no Rust-side biometric module (that one drives Touch ID on
+// macOS); fingerprint/face prompts go through the Tauri biometric plugin.
+const isMobileApp =
+  typeof navigator !== "undefined" && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
 export interface Host {
   id: string;
@@ -285,8 +291,27 @@ export const api = {
   unlockVaultKeyring: () => invoke<boolean>("vault_keyring_unlock"),
   clearVaultKeyring: () => invoke<void>("vault_keyring_clear"),
   hasVaultKeyringKey: () => invoke<boolean>("vault_keyring_has_key"),
-  isVaultBiometricSupported: () => invoke<boolean>("vault_biometric_supported"),
-  unlockVaultBiometric: () => invoke<boolean>("vault_biometric_unlock"),
+  isVaultBiometricSupported: async () => {
+    if (!isMobileApp) return invoke<boolean>("vault_biometric_supported");
+    // Available means hardware present AND at least one fingerprint/face enrolled.
+    return (await biometricStatus()).isAvailable;
+  },
+  /**
+   * Verify the user biometrically, then unlock the vault with the key held
+   * in the OS keyring. Resolves `false` when no key is stored yet (the vault
+   * must be unlocked with the master password once first); rejects when the
+   * biometric check fails or is cancelled.
+   */
+  unlockVaultBiometric: async () => {
+    if (!isMobileApp) return invoke<boolean>("vault_biometric_unlock");
+    if (!(await invoke<boolean>("vault_keyring_has_key"))) {
+      throw new Error(
+        "No saved vault key found in OS Keyring. Please unlock with master password first to enable biometric unlock.",
+      );
+    }
+    await biometricAuthenticate("Unlock Termimus Vault", { allowDeviceCredential: false });
+    return invoke<boolean>("vault_keyring_unlock");
+  },
   changeVaultPassword: (oldPassword: string, newPassword: string) =>
     invoke<void>("vault_change_password", { oldPassword, newPassword }),
   resetVault: () => invoke<void>("vault_reset"),
@@ -408,7 +433,15 @@ export const api = {
   // Local Filesystem
   getLocalHomeDir: () => invoke<string>("local_home_dir"),
   /** Android: run the keep-alive foreground service while sessions are open. */
-  setSessionKeepAlive: (active: boolean) => invoke<void>("session_keepalive_set", { active }),
+  setSessionKeepAlive: (
+    active: boolean,
+    text: { title: string; summary: string } | null = null,
+  ) =>
+    invoke<void>("session_keepalive_set", {
+      active,
+      title: text?.title ?? null,
+      summary: text?.summary ?? null,
+    }),
   /** Android: copy files picked in the system file picker into `destDir`. */
   importLocalFiles: (uris: string[], destDir: string) =>
     invoke<string[]>("local_import_files", { uris, destDir }),

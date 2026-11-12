@@ -1,7 +1,6 @@
 import { Server, KeyRound, FolderOpen, Braces, Waypoints, Settings } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useTunnelStore } from "../../stores/useTunnelStore";
-import { useUpdateStore } from "../../stores/useUpdateStore";
 import type { ActiveTab } from "../layout/Sidebar";
 
 interface MobileNavProps {
@@ -17,7 +16,6 @@ interface MobileNavProps {
 export function MobileNav({ activeNav, onNavChange }: MobileNavProps) {
   const { t } = useTranslation();
   const hasActiveTunnels = useTunnelStore((s) => s.activeRuleIds.size > 0);
-  const hasUpdate = useUpdateStore((s) => s.hasUpdate);
 
   const items: { id: ActiveTab; icon: typeof Server; label: string; dot?: boolean }[] = [
     { id: "hosts", icon: Server, label: t("nav.short.hosts") },
@@ -25,7 +23,9 @@ export function MobileNav({ activeNav, onNavChange }: MobileNavProps) {
     { id: "sftp", icon: FolderOpen, label: t("nav.short.sftp") },
     { id: "snippets", icon: Braces, label: t("nav.short.snippets") },
     { id: "tunnels", icon: Waypoints, label: t("nav.short.tunnels"), dot: hasActiveTunnels },
-    { id: "settings", icon: Settings, label: t("nav.short.settings"), dot: hasUpdate },
+    // No "update available" dot here: the update check looks at desktop
+    // releases, which a phone cannot install.
+    { id: "settings", icon: Settings, label: t("nav.short.settings") },
   ];
 
   return (

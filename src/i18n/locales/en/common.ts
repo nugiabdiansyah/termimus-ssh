@@ -30,4 +30,11 @@ export const commonEn = {
   noOptionsAvailable: "No options available",
   noMatchesFor: "No matches for \"{{query}}\"",
   backAgainToExit: "Press back again to exit",
+  // Android keep-alive notification: what is currently connected.
+  keepAliveTitle: "Keeping sessions connected",
+  keepAliveSsh_one: "{{count}} SSH session",
+  keepAliveSsh_other: "{{count}} SSH sessions",
+  keepAliveSftp: "SFTP",
+  keepAliveTunnel_one: "{{count}} tunnel",
+  keepAliveTunnel_other: "{{count}} tunnels",
 };

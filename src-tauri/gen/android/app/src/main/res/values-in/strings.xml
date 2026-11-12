@@ -1,0 +1,5 @@
+<resources>
+    <string name="keepalive_channel">Sesi aktif</string>
+    <string name="keepalive_title">Menjaga sesi tetap tersambung</string>
+    <string name="keepalive_text">SSH, SFTP, atau port forwarding sedang aktif</string>
+</resources>

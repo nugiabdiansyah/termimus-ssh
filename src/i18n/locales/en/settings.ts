@@ -58,6 +58,8 @@ export const settingsEn = {
     biometricsDesc: "Prompt for biometric verification before unlocking or accessing sensitive credentials.",
     biometricsAvailable: "Available",
     biometricsNotDetected: "Touch ID / Biometric sensor not detected on this machine.",
+    biometricsTitleMobile: "Biometric Unlock (Fingerprint / Face)",
+    biometricsNotDetectedMobile: "No fingerprint or face is enrolled on this device.",
     masterPasswordSection: "Master Password & Maintenance",
     masterPasswordDesc: "Rotate your master password (all credentials will be re-encrypted) or reset the vault.",
     changePasswordBtn: "Change Master Password",

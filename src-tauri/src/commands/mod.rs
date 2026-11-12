@@ -1195,15 +1195,23 @@ where
 /// Android: start (`true`) or stop (`false`) the foreground service that keeps
 /// live sessions connected while the app is in the background. A no-op on
 /// other platforms, where background processes are not frozen.
+///
+/// `title` and `summary` are the notification's two lines ("Keeping sessions
+/// connected" / "2 SSH sessions · SFTP"), already in the app's language.
+/// Calling again while active just refreshes that text.
 #[tauri::command]
-pub fn session_keepalive_set(active: bool) -> Result<(), String> {
+pub fn session_keepalive_set(
+    active: bool,
+    title: Option<String>,
+    summary: Option<String>,
+) -> Result<(), String> {
     #[cfg(target_os = "android")]
     {
-        crate::android_keepalive::set_active(active)
+        crate::android_keepalive::set_active(active, title.as_deref(), summary.as_deref())
     }
     #[cfg(not(target_os = "android"))]
     {
-        let _ = active;
+        let _ = (active, title, summary);
         Ok(())
     }
 }

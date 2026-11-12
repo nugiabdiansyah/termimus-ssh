@@ -17,6 +17,8 @@ interface VaultState {
    *  buffers stay alive underneath; only the vault key is zeroized. */
   isAppLocked: boolean;
   isLoading: boolean;
+  /** False until the first status load finishes; the defaults before that are placeholders. */
+  hasLoaded: boolean;
   error: string | null;
   isBiometricSupported: boolean;
   refresh: () => Promise<void>;
@@ -37,6 +39,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
   isUnlockPromptDismissable: false,
   isAppLocked: false,
   isLoading: true,
+  hasLoaded: false,
   error: null,
   isBiometricSupported: false,
 
@@ -63,6 +66,7 @@ export const useVaultStore = create<VaultState>((set, get) => ({
                 isUnlocked: true,
                 isUnlockPromptOpen: false,
                 isLoading: false,
+                hasLoaded: true,
                 error: null,
                 isBiometricSupported: biometricSupported,
               });
@@ -81,11 +85,12 @@ export const useVaultStore = create<VaultState>((set, get) => ({
         // force it open even if the user dismissed the prompt earlier.
         isUnlockPromptOpen: !status.is_initialized || state.isUnlockPromptOpen,
         isLoading: false,
+        hasLoaded: true,
         error: null,
         isBiometricSupported: biometricSupported,
       }));
     } catch (e) {
-      set({ isLoading: false, error: String(e) });
+      set({ isLoading: false, hasLoaded: true, error: String(e) });
     }
   },
 

@@ -67,7 +67,8 @@ export function SettingsView({ active = true }: SettingsViewProps) {
     badge?: number;
     badgeDot?: boolean;
   }[] = [
-    { id: "general", label: t("settings.tabs.general"), icon: SlidersHorizontal, badgeDot: hasUpdate },
+    // The update check tracks desktop releases, so the dot is desktop-only.
+    { id: "general", label: t("settings.tabs.general"), icon: SlidersHorizontal, badgeDot: hasUpdate && !isMobile },
     { id: "security", label: t("settings.tabs.security"), icon: Lock },
     { id: "terminal", label: t("settings.tabs.terminal"), icon: Palette },
     { id: "sync", label: t("settings.tabs.sync"), icon: Cloud },
@@ -394,7 +395,7 @@ function SecurityVaultTab() {
             <div className="space-y-1">
               <div className="flex items-center gap-2 font-semibold text-[var(--text-primary)]">
                 <Fingerprint size={16} className="text-[var(--accent)]" />
-                <span>{t("settings.security.biometricsTitle")}</span>
+                <span>{t(isMobile ? "settings.security.biometricsTitleMobile" : "settings.security.biometricsTitle")}</span>
                 {isBiometricSupported && (
                   <span className="rounded-full bg-[var(--primary)]/15 px-2 py-0.5 text-[10px] font-medium text-[var(--primary)]">
                     {t("settings.security.biometricsAvailable")}
@@ -405,7 +406,7 @@ function SecurityVaultTab() {
                 {t("settings.security.biometricsDesc")}
                 {!isBiometricSupported && (
                   <span className="block text-[var(--warning)] font-medium mt-1">
-                    {t("settings.security.biometricsNotDetected")}
+                    {t(isMobile ? "settings.security.biometricsNotDetectedMobile" : "settings.security.biometricsNotDetected")}
                   </span>
                 )}
               </p>
@@ -584,6 +585,37 @@ function KnownHostsTab() {
             <p className="text-[11px] mt-1 max-w-sm text-[var(--text-muted)]">
               {t("settings.knownHosts.subtitle")}
             </p>
+          </div>
+        ) : isMobile ? (
+          // A four-column table does not fit a phone: the fingerprint column
+          // ran off the right edge. One stacked block per host instead.
+          <div className="divide-y divide-[var(--border)]/40">
+            {knownHosts.map((kh) => (
+              <div key={`${kh.address}:${kh.port}`} className="px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="truncate font-mono text-xs font-semibold text-[var(--text-primary)]">
+                      {kh.address}:{kh.port}
+                    </div>
+                    <div className="font-mono text-[11px] text-[var(--secondary)]">{kh.key_type}</div>
+                  </div>
+                  <button
+                    onClick={() => handleReset(kh.address, kh.port)}
+                    title="Reset host key"
+                    // No translucent border on top of the translucent fill: that
+                    // combination on a rounded box corrupts painting in the
+                    // Android WebView (see the section list above).
+                    className="inline-flex shrink-0 items-center gap-1 rounded bg-[var(--danger)]/10 px-2.5 py-1.5 text-[11px] text-[var(--danger)]"
+                  >
+                    <Trash2 size={12} />
+                    <span>Reset</span>
+                  </button>
+                </div>
+                <div className="mt-1.5 break-all font-mono text-[11px] leading-relaxed text-[var(--primary)] select-all">
+                  {kh.fingerprint}
+                </div>
+              </div>
+            ))}
           </div>
         ) : (
           <div className="overflow-x-auto">

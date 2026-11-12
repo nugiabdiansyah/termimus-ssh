@@ -60,6 +60,8 @@ export const settingsId: typeof settingsEn = {
     biometricsDesc: "Minta verifikasi biometrik sebelum membuka kunci atau mengakses kredensial sensitif.",
     biometricsAvailable: "Tersedia",
     biometricsNotDetected: "Sensor Touch ID / Biometrik tidak terdeteksi pada komputer ini.",
+    biometricsTitleMobile: "Buka dengan Biometrik (Sidik Jari / Wajah)",
+    biometricsNotDetectedMobile: "Belum ada sidik jari atau wajah yang terdaftar di perangkat ini.",
     masterPasswordSection: "Password Master & Pemeliharaan",
     masterPasswordDesc: "Ganti password master Anda (semua kredensial akan dienkripsi ulang) atau reset brankas.",
     changePasswordBtn: "Ubah Password Master",

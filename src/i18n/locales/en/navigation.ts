@@ -29,6 +29,8 @@ export const navigationEn = {
   closeTab: "Close Tab",
   closeOtherTabs: "Close Other Tabs",
   closeTabsToRight: "Close Tabs to Right",
+  // Mobile: header button and sheet listing every open session.
+  sessions: "Sessions",
   // Compact labels for the mobile bottom navigation bar.
   short: { hosts: "Hosts", keychain: "Keys", sftp: "SFTP", snippets: "Snippets", tunnels: "Tunnels", settings: "Settings" },
 };

@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { isMobile } from "../../lib/platform";
+import { MobileSessionSwitcher } from "../mobile/MobileSessionSwitcher";
 import {
   Home,
   PanelRightClose,
@@ -420,7 +421,13 @@ export function Header({
             <span>{t("nav.home")}</span>
           </button>
 
-          {groups.map((group) => {
+          {/* Mobile: one chip for the current session plus a list of all of
+              them, instead of a tab per session (see MobileSessionSwitcher). */}
+          {isMobile && (
+            <MobileSessionSwitcher isTerminalActive={isTerminalActive} onSelectTab={onSelectTab} />
+          )}
+
+          {!isMobile && groups.map((group) => {
             const sessionIds = getAllSessionIdsInTree(group.rootPane);
             const groupTabs = sessionIds
               .map((id) => tabs.find((t) => t.id === id))
