@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">"Termimus"</string>
+    <string name="main_activity_title">"Termimus"</string>
+    <string name="keepalive_channel">Active sessions</string>
+    <string name="keepalive_title">Keeping sessions connected</string>
+    <string name="keepalive_text">SSH, SFTP or port forwarding is active</string>
+</resources>

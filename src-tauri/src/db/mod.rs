@@ -1458,9 +1458,24 @@ impl Database {
     }
 }
 
+static DATA_DIR_OVERRIDE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+
+/// Point all on-disk app data at `dir`. Must be called before `Database::new()`.
+/// Used on mobile, where the sandboxed app data dir is the only writable
+/// location; desktop never calls this and keeps the OS config dir.
+pub fn set_data_dir(dir: PathBuf) {
+    let _ = DATA_DIR_OVERRIDE.set(dir);
+}
+
+/// Directory holding the database and other app-owned files.
+pub fn data_dir() -> PathBuf {
+    DATA_DIR_OVERRIDE.get().cloned().unwrap_or_else(|| {
+        dirs::config_dir()
+            .unwrap_or_else(|| PathBuf::from("."))
+            .join("termimus")
+    })
+}
+
 fn get_database_path() -> PathBuf {
-    let base_dir = dirs::config_dir()
-        .unwrap_or_else(|| PathBuf::from("."))
-        .join("termimus");
-    base_dir.join("termimus.db")
+    data_dir().join("termimus.db")
 }

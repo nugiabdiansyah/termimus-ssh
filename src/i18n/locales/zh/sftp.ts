@@ -80,4 +80,9 @@ export const sftpZh: typeof sftpEn = {
     cancel: "取消",
     filesCount: "{{done}}/{{total}} 个文件",
   },
+  // Mobile single-pane layout: transfer button under the active pane.
+  sendTo: "发送 {{count}} 项到 {{target}}",
+  // Android: copy files chosen in the system file picker into the local pane.
+  importFromPhone: "从手机添加文件",
+  importingFromPhone: "正在添加文件…",
 };

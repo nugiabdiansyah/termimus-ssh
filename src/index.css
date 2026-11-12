@@ -204,3 +204,26 @@
     animation: none;
   }
 }
+
+/* ── Mobile app shell (Android / iOS) ─────────────────────────────────────
+   Unlayered on purpose: these must override Tailwind utilities such as
+   `h-screen`. `--app-height` is the visible height, maintained by
+   initMobileViewport() in lib/platform.ts; it shrinks when the soft keyboard
+   opens. The safe-area padding keeps content clear of the status bar and the
+   gesture bar, which the edge-to-edge WebView otherwise draws underneath. */
+html.is-mobile .app-shell {
+  height: var(--app-height, 100dvh);
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* The bottom nav would eat a fifth of what the keyboard leaves visible. */
+html.is-mobile.kb-open .mobile-nav {
+  display: none;
+}
+
+/* No hover on touch: thin scrollbars only add noise. */
+html.is-mobile ::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
+import { isMobile } from "../../lib/platform";
 import {
   Home,
   PanelRightClose,
@@ -363,8 +364,8 @@ export function Header({
       />
 
       <header
-        data-tauri-drag-region="deep"
-        className="flex h-9 w-full select-none items-center bg-[var(--canvas)] border-b border-[var(--border)]"
+        data-tauri-drag-region={isMobile ? undefined : "deep"}
+        className={`flex w-full shrink-0 select-none items-center bg-[var(--canvas)] border-b border-[var(--border)] ${isMobile ? "h-11" : "h-9"}`}
       >
         {/* macOS: native traffic lights (titleBarStyle: Overlay in
             tauri.macos.conf.json) are drawn by the system on top of this
@@ -391,7 +392,7 @@ export function Header({
             once there are more tabs than fit, instead of clipping those
             right-side controls off-window. */}
         <div
-          data-tauri-drag-region
+          data-tauri-drag-region={isMobile ? undefined : ""}
           onContextMenu={(e) => handleTabContextMenu(e)}
           className="flex h-full min-w-0 shrink items-center gap-1 overflow-x-auto px-1"
         >
@@ -542,7 +543,7 @@ export function Header({
         </div>
 
         {/* Drag region filler */}
-        <div data-tauri-drag-region className="h-full flex-1 cursor-default" />
+        <div data-tauri-drag-region={isMobile ? undefined : ""} className="h-full flex-1 cursor-default" />
 
         {/* App Lock Button — zeroizes the vault key AND covers the UI with the
             AppLockScreen until re-authentication. SSH sessions and terminal
@@ -581,7 +582,7 @@ export function Header({
         <HeaderSyncIndicator onOpenSyncSettings={onOpenSyncSettings} />
 
         {/* Windows / Linux Window Controls (Omitted on macOS) */}
-        {!isMac && (
+        {!isMac && !isMobile && (
           <div data-tauri-drag-region="false" className="flex h-full items-stretch shrink-0">
             <button
               onClick={handleMinimize}

@@ -31,4 +31,5 @@ export const commonZh: typeof commonEn = {
   selectOption: "请选择选项...",
   noOptionsAvailable: "无可用选项",
   noMatchesFor: "未找到与 \"{{query}}\" 匹配的项",
+  backAgainToExit: "再按一次返回键退出",
 };

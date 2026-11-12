@@ -53,6 +53,7 @@ export const settingsEn = {
     autoLockOnFocusLoss: "When app loses focus",
     keyringTitle: "Store master key in OS Keyring",
     keyringDesc: "Persists the derived vault key in macOS Keychain, Linux Secret Service, or Windows Credential Manager.",
+    keyringDescAndroid: "Persists the derived vault key on this device, encrypted with the Android Keystore.",
     biometricsTitle: "Biometric Unlock (Touch ID / Windows Hello)",
     biometricsDesc: "Prompt for biometric verification before unlocking or accessing sensitive credentials.",
     biometricsAvailable: "Available",

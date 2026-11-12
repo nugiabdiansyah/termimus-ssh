@@ -8,7 +8,9 @@ import {
   AlertCircle,
   Unplug,
   CloudLightning,
+  FilePlus,
 } from "lucide-react";
+import { open as openFilePicker } from "@tauri-apps/plugin-dialog";
 import { useShallow } from "zustand/react/shallow";
 import { SelectMods, useSftpStore } from "../../stores/useSftpStore";
 import { useHostStore } from "../../stores/useHostStore";
@@ -16,8 +18,10 @@ import { FilePane } from "./FilePane";
 import { FileEditorModal } from "./FileEditorModal";
 import { TransferConflictModal } from "./TransferConflictModal";
 import { TransferProgressOverlay } from "./TransferProgressOverlay";
-import { FileEntry } from "../../lib/api";
+import { api, FileEntry } from "../../lib/api";
 import { CustomSelect } from "../ui/CustomSelect";
+import { isMobile } from "../../lib/platform";
+import { isAndroidWebView } from "../../lib/androidImeInput";
 
 function getTransferButtonTitle(
   files: FileEntry[],
@@ -58,6 +62,9 @@ function getTransferButtonTitle(
 export function SftpView() {
   const { t } = useTranslation();
   const hosts = useHostStore((s) => s.hosts);
+  // Mobile shows one pane at a time; both stay mounted so paths, selection
+  // and scroll position survive switching.
+  const [mobilePane, setMobilePane] = useState<"left" | "right">("left");
   const [editingFile, setEditingFile] = useState<{
     file: FileEntry;
     isRemote: boolean;
@@ -203,6 +210,25 @@ export function SftpView() {
   );
 
   const refreshLeft = useCallback(() => navigatePane("left", leftPath), [navigatePane, leftPath]);
+
+  // Android: other apps' files are invisible to the local pane (scoped
+  // storage), so uploads start by picking files in the system file picker
+  // and copying them into the current local folder.
+  const [importing, setImporting] = useState(false);
+  const importFromPhone = useCallback(async () => {
+    try {
+      const picked = await openFilePicker({ multiple: true });
+      if (!picked) return;
+      setImporting(true);
+      await api.importLocalFiles(Array.isArray(picked) ? picked : [picked], leftPath);
+      navigatePane("left", leftPath);
+    } catch (e) {
+      // Backing out of the picker rejects; that is not an error worth showing.
+      if (!/cancel/i.test(String(e))) useSftpStore.setState({ error: String(e) });
+    } finally {
+      setImporting(false);
+    }
+  }, [leftPath, navigatePane]);
   const refreshRight = useCallback(() => navigatePane("right", rightPath), [navigatePane, rightPath]);
 
   const createLeftFolder = useCallback(
@@ -271,7 +297,7 @@ export function SftpView() {
   // Header selector for Left Pane
   const leftHeaderSelector = (
     <div className="flex min-w-0 flex-1 items-center gap-2">
-      <div className="flex shrink-0 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-container)] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]">
+      <div className={`${isMobile ? "hidden" : "flex"} shrink-0 items-center gap-1.5 rounded-md border border-[var(--border)] bg-[var(--surface-container)] px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--text-secondary)]`}>
         {leftIsRemote ? (
           <Server size={12} className="text-[var(--accent)]" />
         ) : (
@@ -318,7 +344,7 @@ export function SftpView() {
   // Header selector for Right Pane
   const rightHeaderSelector = (
     <div className="flex min-w-0 flex-1 items-center gap-2">
-      <div className="flex shrink-0 items-center gap-1.5 rounded-md border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--primary)]">
+      <div className={`${isMobile ? "hidden" : "flex"} shrink-0 items-center gap-1.5 rounded-md border border-[var(--primary)]/30 bg-[var(--primary)]/10 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-[var(--primary)]`}>
         <Server size={12} />
         <span>{t("sftp.destination")}</span>
       </div>
@@ -367,9 +393,40 @@ export function SftpView() {
         </div>
       )}
 
+      {/* Mobile: pane switcher */}
+      {isMobile && (
+        <div className="mb-2 flex shrink-0 gap-1 rounded-xl border border-[var(--border)] bg-[var(--surface-container)] p-1">
+          {(
+            [
+              ["left", t("sftp.source"), leftTitle, selectedLeftFiles.length],
+              ["right", t("sftp.destination"), rightTitle, selectedRightFiles.length],
+            ] as const
+          ).map(([pane, role, title, count]) => (
+            <button
+              key={pane}
+              type="button"
+              onClick={() => setMobilePane(pane)}
+              aria-pressed={mobilePane === pane}
+              className={`flex min-w-0 flex-1 flex-col items-center rounded-lg px-2 py-1.5 transition-colors ${
+                mobilePane === pane
+                  ? "bg-[var(--surface-highest)] text-[var(--primary)]"
+                  : "text-[var(--text-muted)]"
+              }`}
+            >
+              <span className="text-[9px] font-bold uppercase tracking-wider">
+                {role}
+                {count > 0 ? ` · ${count}` : ""}
+              </span>
+              <span className="max-w-full truncate text-xs font-medium">{title}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Dual Pane + Center Transfer Buttons */}
       <div className="flex min-h-0 flex-1 gap-2 overflow-hidden">
         {/* Left Pane: Local or Remote 1 */}
+        <div className={isMobile ? (mobilePane === "left" ? "flex min-w-0 flex-1" : "hidden") : "contents"}>
         <FilePane
           headerLeft={leftHeaderSelector}
           path={leftPath}
@@ -388,9 +445,10 @@ export function SftpView() {
           disabled={leftDisabled}
           onTransfer={transferLeft}
         />
+        </div>
 
         {/* Center Transfer Buttons & Bridge Badge */}
-        <div className="flex shrink-0 flex-col items-center justify-center gap-2 px-1">
+        <div className={isMobile ? "hidden" : "flex shrink-0 flex-col items-center justify-center gap-2 px-1"}>
           {isCloudToCloud && (
             <div
               className="mb-1 flex h-8 w-8 items-center justify-center rounded-lg border border-[var(--accent)]/40 bg-[var(--accent)]/15 text-[var(--accent)] shadow-sm transition hover:bg-[var(--accent)]/25 cursor-help"
@@ -444,6 +502,7 @@ export function SftpView() {
         </div>
 
         {/* Right Pane: Remote Server 2 */}
+        <div className={isMobile ? (mobilePane === "right" ? "flex min-w-0 flex-1" : "hidden") : "contents"}>
         <FilePane
           headerLeft={rightHeaderSelector}
           path={rightPath}
@@ -462,7 +521,43 @@ export function SftpView() {
           disabled={rightDisabled}
           onTransfer={transferRight}
         />
+        </div>
       </div>
+
+      {/* Mobile: transfer the active pane's selection to the other side */}
+      {isMobile && (() => {
+        const fromLeft = mobilePane === "left";
+        const selected = fromLeft ? selectedLeftFiles : selectedRightFiles;
+        if (selected.length === 0) {
+          if (!(fromLeft && !leftIsRemote && isAndroidWebView())) return null;
+          return (
+            <button
+              type="button"
+              onClick={importFromPhone}
+              disabled={importing || transferring}
+              className="mt-2 flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--surface-high)] px-4 text-sm font-medium text-[var(--text-primary)] disabled:opacity-40"
+            >
+              <FilePlus size={16} />
+              <span className="truncate">
+                {importing ? t("sftp.importingFromPhone") : t("sftp.importFromPhone")}
+              </span>
+            </button>
+          );
+        }
+        return (
+          <button
+            type="button"
+            onClick={() => (fromLeft ? transferLeftToRight() : transferRightToLeft())}
+            disabled={rightDisabled || leftDisabled || transferring}
+            className="mt-2 flex h-11 shrink-0 items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--on-primary)] disabled:opacity-40"
+          >
+            {fromLeft ? <ArrowRight size={16} /> : <ArrowLeft size={16} />}
+            <span className="truncate">
+              {t("sftp.sendTo", { count: selected.length, target: fromLeft ? rightTitle : leftTitle })}
+            </span>
+          </button>
+        );
+      })()}
 
       {/* Transfer-conflict modal (self-subscribing, renders null when idle) */}
       <TransferConflictModal />

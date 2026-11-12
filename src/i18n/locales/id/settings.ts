@@ -55,6 +55,7 @@ export const settingsId: typeof settingsEn = {
     autoLockOnFocusLoss: "Saat jendela kehilangan fokus",
     keyringTitle: "Simpan kunci master di OS Keyring",
     keyringDesc: "Menyimpan kunci brankas di macOS Keychain, Linux Secret Service, atau Windows Credential Manager.",
+    keyringDescAndroid: "Menyimpan kunci brankas di perangkat ini, terenkripsi dengan Android Keystore.",
     biometricsTitle: "Buka Kunci Biometrik (Touch ID / Windows Hello)",
     biometricsDesc: "Minta verifikasi biometrik sebelum membuka kunci atau mengakses kredensial sensitif.",
     biometricsAvailable: "Tersedia",

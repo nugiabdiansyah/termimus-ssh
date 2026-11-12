@@ -307,7 +307,7 @@ impl TunnelManager {
                         };
                         let destination_address = destination_address.clone();
                         tokio::spawn(async move {
-                            match TcpStream::connect((destination_address.as_str(), destination_port)).await {
+                            match crate::ssh::connect_tcp(destination_address.as_str(), destination_port).await {
                                 Ok(stream) => pipe_channel(stream, channel).await,
                                 Err(e) => {
                                     eprintln!(
@@ -382,7 +382,7 @@ async fn connect_ssh(
         db,
         forwarded_tcpip,
     };
-    let socket = match tokio::net::TcpStream::connect((address, port)).await {
+    let socket = match crate::ssh::connect_tcp(address, port).await {
         Ok(s) => {
             crate::ssh::configure_tcp_stream(&s);
             s

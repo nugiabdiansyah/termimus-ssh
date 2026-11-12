@@ -29,4 +29,5 @@ export const commonEn = {
   selectOption: "Select an option...",
   noOptionsAvailable: "No options available",
   noMatchesFor: "No matches for \"{{query}}\"",
+  backAgainToExit: "Press back again to exit",
 };

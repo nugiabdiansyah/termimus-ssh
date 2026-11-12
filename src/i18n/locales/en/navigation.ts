@@ -29,4 +29,6 @@ export const navigationEn = {
   closeTab: "Close Tab",
   closeOtherTabs: "Close Other Tabs",
   closeTabsToRight: "Close Tabs to Right",
+  // Compact labels for the mobile bottom navigation bar.
+  short: { hosts: "Hosts", keychain: "Keys", sftp: "SFTP", snippets: "Snippets", tunnels: "Tunnels", settings: "Settings" },
 };

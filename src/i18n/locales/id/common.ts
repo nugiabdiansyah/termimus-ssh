@@ -31,4 +31,5 @@ export const commonId: typeof commonEn = {
   selectOption: "Pilih salah satu...",
   noOptionsAvailable: "Tidak ada pilihan tersedia",
   noMatchesFor: "Tidak ada yang cocok untuk \"{{query}}\"",
+  backAgainToExit: "Tekan kembali sekali lagi untuk keluar",
 };

@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/mobile-schema.json",
+  "identifier": "mobile",
+  "description": "Extra permissions for the Android / iOS builds",
+  "platforms": ["android", "iOS"],
+  "windows": ["main"],
+  "permissions": ["core:app:allow-exit"]
+}

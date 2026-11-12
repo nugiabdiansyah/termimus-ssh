@@ -1,3 +1,6 @@
+#[cfg(target_os = "android")]
+mod android_content;
+
 use russh::client::{self, Handle};
 use russh_sftp::client::SftpSession;
 use russh_sftp::protocol::OpenFlags;
@@ -72,7 +75,7 @@ impl SftpManager {
             db,
             forwarded_tcpip: None,
         };
-        let socket = match tokio::net::TcpStream::connect((address.as_str(), port)).await {
+        let socket = match crate::ssh::connect_tcp(address.as_str(), port).await {
             Ok(s) => {
                 crate::ssh::configure_tcp_stream(&s);
                 s
@@ -540,10 +543,99 @@ pub fn list_local_directory(path: &Path) -> Result<Vec<FileEntry>, String> {
     Ok(entries)
 }
 
+/// Copy files the user chose in the system file picker into `dest_dir`,
+/// returning the names they were saved under.
+///
+/// Android only: the picker returns `content://` URIs that are readable solely
+/// through `ContentResolver`. Copying them into the local pane's folder turns
+/// them into ordinary files the SFTP upload path already knows how to send.
+/// Existing files are never overwritten; a clash gets a ` (n)` suffix.
+#[cfg(target_os = "android")]
+pub fn import_picked_files(uris: &[String], dest_dir: &str) -> Result<Vec<String>, String> {
+    let dest_dir = Path::new(dest_dir);
+    fs::create_dir_all(dest_dir).map_err(|e| format!("Cannot create {}: {e}", dest_dir.display()))?;
+
+    let mut imported = Vec::with_capacity(uris.len());
+    for uri in uris {
+        let (name, mut source) = android_content::open_content_uri(uri)?;
+        // The provider controls the display name: keep only its final path
+        // component so it cannot point outside `dest_dir`.
+        let name = name
+            .as_deref()
+            .and_then(|n| Path::new(n).file_name())
+            .map(|n| n.to_string_lossy().to_string())
+            .filter(|n| !n.is_empty() && n != "." && n != "..")
+            .unwrap_or_else(|| "imported-file".to_string());
+
+        let target = unique_destination(dest_dir, &name);
+        let mut out = fs::File::create(&target).map_err(|e| format!("Cannot create {}: {e}", target.display()))?;
+        if let Err(e) = std::io::copy(&mut source, &mut out) {
+            drop(out);
+            let _ = fs::remove_file(&target);
+            return Err(format!("Failed to copy {name}: {e}"));
+        }
+        imported.push(target.file_name().unwrap_or_default().to_string_lossy().to_string());
+    }
+    Ok(imported)
+}
+
+/// `dir/name`, or `dir/stem (n).ext` for the first `n` that is not taken.
+#[cfg(any(target_os = "android", test))]
+fn unique_destination(dir: &Path, name: &str) -> std::path::PathBuf {
+    let candidate = dir.join(name);
+    if !candidate.exists() {
+        return candidate;
+    }
+    let path = Path::new(name);
+    let stem = path.file_stem().map(|s| s.to_string_lossy().to_string()).unwrap_or_else(|| name.to_string());
+    let ext = path.extension().map(|e| format!(".{}", e.to_string_lossy())).unwrap_or_default();
+    (1u32..)
+        .map(|n| dir.join(format!("{stem} ({n}){ext}")))
+        .find(|p| !p.exists())
+        .expect("an unused file name exists")
+}
+
+/// Public `Download/Termimus` folder on Android, if this app can write there.
+///
+/// Since Android 11 (scoped storage) an app may create and manage its own
+/// files in the shared Download collection through plain file paths, with no
+/// permission. Files written here show up in the system Files app and are
+/// kept when the app is uninstalled, unlike the sandbox. Older Android
+/// versions require a storage permission we do not request, so the probe
+/// below fails there and the caller falls back to the sandbox.
+#[cfg(target_os = "android")]
+fn android_public_download_dir() -> Option<std::path::PathBuf> {
+    let root = std::env::var("EXTERNAL_STORAGE").unwrap_or_else(|_| "/storage/emulated/0".to_string());
+    let dir = Path::new(&root).join("Download").join("Termimus");
+    fs::create_dir_all(&dir).ok()?;
+    // Creating the directory can succeed where writing a file does not.
+    let probe = dir.join(".termimus-write-test");
+    fs::write(&probe, b"").ok()?;
+    let _ = fs::remove_file(&probe);
+    Some(dir)
+}
+
 pub fn get_user_home() -> String {
-    dirs::home_dir()
-        .map(|p| p.to_string_lossy().to_string())
-        .unwrap_or_else(|| "/".to_string())
+    // Mobile apps have no readable home directory ("/" is permission-denied).
+    #[cfg(mobile)]
+    {
+        #[cfg(target_os = "android")]
+        if let Some(dir) = android_public_download_dir() {
+            return dir.to_string_lossy().to_string();
+        }
+        // Fallback: a dedicated folder inside the sandbox rather than the app
+        // data root, which holds the vault database and WebView internals
+        // that a stray delete would destroy.
+        let dir = crate::db::data_dir().join("transfers");
+        let _ = std::fs::create_dir_all(&dir);
+        dir.to_string_lossy().to_string()
+    }
+    #[cfg(desktop)]
+    {
+        dirs::home_dir()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| "/".to_string())
+    }
 }
 
 /// Stat each path for the transfer-conflict check; missing paths map to `None`.
@@ -582,4 +674,32 @@ pub fn read_local_text_file(path: &Path) -> Result<String, String> {
 
 pub fn write_local_text_file(path: &Path, content: &str) -> Result<(), String> {
     fs::write(path, content).map_err(|e| format!("Cannot write to local file: {e}"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::unique_destination;
+    use std::fs;
+
+    #[test]
+    fn unique_destination_never_reuses_an_existing_name() {
+        let dir = std::env::temp_dir().join(format!("termimus-unique-{}", uuid::Uuid::new_v4()));
+        fs::create_dir_all(&dir).unwrap();
+
+        assert_eq!(unique_destination(&dir, "notes.txt"), dir.join("notes.txt"));
+
+        fs::write(dir.join("notes.txt"), b"").unwrap();
+        assert_eq!(unique_destination(&dir, "notes.txt"), dir.join("notes (1).txt"));
+
+        fs::write(dir.join("notes (1).txt"), b"").unwrap();
+        assert_eq!(unique_destination(&dir, "notes.txt"), dir.join("notes (2).txt"));
+
+        // No extension, and a dotfile whose whole name is the "stem".
+        fs::write(dir.join("Makefile"), b"").unwrap();
+        assert_eq!(unique_destination(&dir, "Makefile"), dir.join("Makefile (1)"));
+        fs::write(dir.join(".env"), b"").unwrap();
+        assert_eq!(unique_destination(&dir, ".env"), dir.join(".env (1)"));
+
+        fs::remove_dir_all(&dir).unwrap();
+    }
 }

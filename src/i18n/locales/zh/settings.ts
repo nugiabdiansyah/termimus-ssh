@@ -55,6 +55,7 @@ export const settingsZh: typeof settingsEn = {
     autoLockOnFocusLoss: "应用失去焦点时",
     keyringTitle: "将主密钥保存在系统钥匙串中",
     keyringDesc: "将派生的保险库密钥持久化保存在 macOS Keychain、Linux Secret Service 或 Windows 凭据管理器中。",
+    keyringDescAndroid: "将派生的保险库密钥保存在此设备上，并使用 Android Keystore 加密。",
     biometricsTitle: "生物识别解锁 (触控 ID / Windows Hello)",
     biometricsDesc: "在解锁或访问敏感凭据前提示进行生物特征识别验证。",
     biometricsAvailable: "可用",

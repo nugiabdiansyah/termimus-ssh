@@ -1,7 +1,14 @@
 pub mod ai;
+#[cfg(target_os = "android")]
+pub mod android_keepalive;
 pub mod biometric;
 pub mod commands;
 pub mod db;
+// Local shells only exist on desktop; mobile gets an API-compatible stub.
+#[cfg(desktop)]
+pub mod pty;
+#[cfg(mobile)]
+#[path = "pty/unsupported.rs"]
 pub mod pty;
 pub mod sftp;
 pub mod ssh;
@@ -19,8 +26,7 @@ use tauri::Manager;
 use tunnel::TunnelManager;
 use vault::VaultManager;
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
-pub fn run() {
+fn build_state() -> AppState {
     let db = Arc::new(Database::new().expect("Failed to initialize SQLite database"));
     let vault = Arc::new(VaultManager::new());
     let ssh = Arc::new(SessionManager::new());
@@ -29,13 +35,39 @@ pub fn run() {
     let pty = Arc::new(PtyManager::new());
     let ai = Arc::new(ai::AiClient::new());
 
-    let state = AppState { db, vault, ssh, sftp, tunnel, pty, ai };
+    AppState { db, vault, ssh, sftp, tunnel, pty, ai }
+}
 
-    tauri::Builder::default()
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
-        .plugin(tauri_plugin_clipboard_manager::init())
-        .manage(state)
+        .plugin(tauri_plugin_clipboard_manager::init());
+
+    // Desktop keeps its data under the OS config dir, known before the app
+    // starts. Mobile apps are sandboxed: the only writable location is the
+    // app data dir, which Tauri can resolve only once the app handle exists.
+    #[cfg(desktop)]
+    let builder = builder.manage(build_state());
+    #[cfg(mobile)]
+    let builder = builder.setup(|app| {
+        // `keyring` has no built-in store on Android, so every keyring command
+        // would fail with "No default store has been set". Install the native
+        // one (SharedPreferences encrypted by an Android Keystore key). It
+        // needs the JNI context, which Tauri has initialized by the time
+        // `setup` runs. A failure here only disables the keyring features.
+        #[cfg(target_os = "android")]
+        match android_native_keyring_store::Store::new() {
+            Ok(store) => keyring_core::set_default_store(store),
+            Err(e) => eprintln!("Android keyring store unavailable: {e}"),
+        }
+        db::set_data_dir(app.path().app_data_dir()?);
+        app.manage(build_state());
+        Ok(())
+    });
+
+    builder
         .invoke_handler(tauri::generate_handler![
             commands::vault_status,
             commands::vault_setup,
@@ -88,6 +120,8 @@ pub fn run() {
             commands::sftp_write_file,
             commands::sftp_stat_many,
             commands::local_home_dir,
+            commands::local_import_files,
+            commands::session_keepalive_set,
             commands::local_list,
             commands::local_mkdir,
             commands::local_delete,

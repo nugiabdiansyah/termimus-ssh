@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <!-- Matches the Termimus tile so the masked icon reads as one dark shape. -->
+  <color name="ic_launcher_background">#161b22</color>
+</resources>

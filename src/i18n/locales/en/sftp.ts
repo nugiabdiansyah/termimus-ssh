@@ -78,4 +78,9 @@ export const sftpEn = {
     cancel: "Cancel",
     filesCount: "{{done}}/{{total}} files",
   },
+  // Mobile single-pane layout: transfer button under the active pane.
+  sendTo: "Send {{count}} to {{target}}",
+  // Android: copy files chosen in the system file picker into the local pane.
+  importFromPhone: "Add files from phone",
+  importingFromPhone: "Adding files…",
 };

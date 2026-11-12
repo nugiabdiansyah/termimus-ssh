@@ -31,4 +31,6 @@ export const navigationZh: typeof navigationEn = {
   closeTab: "关闭标签页",
   closeOtherTabs: "关闭其他标签页",
   closeTabsToRight: "关闭右侧标签页",
+  // Compact labels for the mobile bottom navigation bar.
+  short: { hosts: "主机", keychain: "密钥", sftp: "SFTP", snippets: "片段", tunnels: "转发", settings: "设置" },
 };

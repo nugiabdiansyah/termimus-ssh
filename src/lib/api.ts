@@ -407,6 +407,11 @@ export const api = {
 
   // Local Filesystem
   getLocalHomeDir: () => invoke<string>("local_home_dir"),
+  /** Android: run the keep-alive foreground service while sessions are open. */
+  setSessionKeepAlive: (active: boolean) => invoke<void>("session_keepalive_set", { active }),
+  /** Android: copy files picked in the system file picker into `destDir`. */
+  importLocalFiles: (uris: string[], destDir: string) =>
+    invoke<string[]>("local_import_files", { uris, destDir }),
   listLocal: (path?: string) => invoke<FileEntry[]>("local_list", { path: path ?? null }),
   mkdirLocal: (path: string) => invoke<void>("local_mkdir", { path }),
   deleteLocal: (path: string, isDir: boolean) =>

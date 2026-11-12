@@ -28,6 +28,11 @@ import { useKeychainStore } from "./stores/useKeychainStore";
 import { useUpdateStore } from "./stores/useUpdateStore";
 import { useAutoLock } from "./hooks/useAutoLock";
 import { useLiveSync } from "./hooks/useLiveSync";
+import { useBackButton } from "./hooks/useBackButton";
+import { useSessionKeepAlive } from "./hooks/useSessionKeepAlive";
+import { useTranslation } from "react-i18next";
+import { isMobile } from "./lib/platform";
+import { MobileNav } from "./components/mobile/MobileNav";
 
 // Helper component for native-feel stacked views:
 // Keeps views mounted in the DOM once visited, switching visibility in 0ms
@@ -83,6 +88,13 @@ function App() {
   // Background real-time WebSocket live sync manager
   useLiveSync();
 
+  // Android: foreground service while any SSH/SFTP/tunnel session is open.
+  useSessionKeepAlive();
+
+  // Android system Back: dismiss modals, return to Hosts, double-press to exit.
+  const { exitHintVisible } = useBackButton(activeNav, openHosts);
+  const { t } = useTranslation();
+
   // Enforce small minimum window size (480x360) so users can snap/tile to half screen
   // on sub-1080p displays (e.g. 1366x768 half is 683px, 1280x800 half is 640px).
   useEffect(() => {
@@ -137,9 +149,9 @@ function App() {
   const showTerminal = activeNav === "terminal";
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[var(--canvas)] text-[var(--text-primary)]">
+    <div className="app-shell flex h-screen w-screen flex-col overflow-hidden bg-[var(--canvas)] text-[var(--text-primary)]">
       {/* Invisible edge/corner handles restoring OS resize cursors on this frameless window */}
-      <ResizeHandles />
+      {!isMobile && <ResizeHandles />}
 
       {/* Top Unified Frameless Window Bar (Termius-style: Menu + Tabs + Window Controls) */}
       <Header
@@ -153,7 +165,7 @@ function App() {
       {/* Main Workspace Body */}
       <div className="flex flex-1 overflow-hidden">
         {/* Left Obsidian Sidebar — hidden when terminal is active so terminal gets fullscreen width */}
-        {!showTerminal && (
+        {!showTerminal && !isMobile && (
           <Sidebar
             activeNav={activeNav}
             onNavChange={handleNavChange}
@@ -220,6 +232,20 @@ function App() {
           )}
         </main>
       </div>
+
+      {/* Mobile: bottom navigation replaces the desktop sidebar */}
+      {isMobile && !showTerminal && (
+        <MobileNav activeNav={activeNav} onNavChange={handleNavChange} />
+      )}
+
+      {/* Android: hint shown after the first Back press on the Hosts page */}
+      {exitHintVisible && (
+        <div className="pointer-events-none fixed inset-x-0 bottom-24 z-[60] flex justify-center px-6">
+          <div className="rounded-full border border-[var(--border-subtle)] bg-[var(--surface-highest)] px-4 py-2 text-xs font-medium text-[var(--text-primary)] shadow-2xl">
+            {t("common.backAgainToExit")}
+          </div>
+        </div>
+      )}
 
       {/* Full App Lock Screen (Header padlock): opaque overlay above everything,
           sessions/terminals keep running underneath */}

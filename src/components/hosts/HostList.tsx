@@ -337,10 +337,12 @@ export function HostList({ onOpenTerminal, onOpenSftp, onOpenTunnels }: HostList
 
       {/* Top Search & Actions Bar */}
       <div className="mb-6 flex flex-col gap-2.5 min-w-0">
-        <div className="flex items-center justify-between gap-3 min-w-0">
-          <div className="flex flex-1 items-center gap-2 min-w-0">
+        {/* Below `sm` (phones, very narrow windows) the search takes its own
+            row and the actions wrap underneath instead of overlapping it. */}
+        <div className="flex items-center justify-between gap-3 min-w-0 max-sm:flex-wrap">
+          <div className="flex flex-1 items-center gap-2 min-w-0 max-sm:basis-full">
             {/* Search bar */}
-            <div className="relative min-w-[160px] sm:min-w-[220px] max-w-xs flex-1 shrink-0">
+            <div className="relative min-w-[160px] sm:min-w-[220px] max-w-xs max-sm:max-w-none flex-1 shrink-0">
               <Search
                 size={14}
                 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]"
@@ -387,7 +389,7 @@ export function HostList({ onOpenTerminal, onOpenSftp, onOpenTunnels }: HostList
           </div>
 
           {/* Right Area: Grid/List Toggle + Actions */}
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 max-sm:w-full max-sm:justify-between">
             {/* View Mode Toggle */}
             <div className="flex items-center rounded-xl border border-[var(--border)] bg-[var(--surface-container)] p-0.5 shadow-sm">
               <button

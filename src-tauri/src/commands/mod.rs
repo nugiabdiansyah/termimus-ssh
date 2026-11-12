@@ -7,7 +7,14 @@ use crate::tunnel::TunnelManager;
 use crate::vault::VaultManager;
 use crate::ai::AiClient;
 use chrono::Utc;
+// `keyring::Entry` (the v1 convenience wrapper) refuses to work on Android
+// no matter which store is installed, so go to `keyring_core` directly there.
+// lib.rs installs the Android store at startup. The entry API and the error
+// type (`keyring::Error` re-exports `keyring_core::Error`) are identical.
+#[cfg(not(target_os = "android"))]
 use keyring::Entry as KeyringEntry;
+#[cfg(target_os = "android")]
+use keyring_core::Entry as KeyringEntry;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use std::sync::Arc;
@@ -1185,6 +1192,41 @@ where
     }
 }
 
+/// Android: start (`true`) or stop (`false`) the foreground service that keeps
+/// live sessions connected while the app is in the background. A no-op on
+/// other platforms, where background processes are not frozen.
+#[tauri::command]
+pub fn session_keepalive_set(active: bool) -> Result<(), String> {
+    #[cfg(target_os = "android")]
+    {
+        crate::android_keepalive::set_active(active)
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = active;
+        Ok(())
+    }
+}
+
+/// Copy files chosen in the Android system file picker (`content://` URIs)
+/// into the local SFTP pane's folder so they can be uploaded. Returns the
+/// file names created. Not available on other platforms, where the local
+/// pane browses the filesystem directly.
+#[tauri::command]
+pub async fn local_import_files(uris: Vec<String>, dest_dir: String) -> Result<Vec<String>, String> {
+    #[cfg(target_os = "android")]
+    {
+        tauri::async_runtime::spawn_blocking(move || sftp::import_picked_files(&uris, &dest_dir))
+            .await
+            .map_err(|e| e.to_string())?
+    }
+    #[cfg(not(target_os = "android"))]
+    {
+        let _ = (uris, dest_dir);
+        Err("Importing picked files is only supported on Android.".to_string())
+    }
+}
+
 #[tauri::command]
 pub fn local_home_dir() -> String {
     sftp::get_user_home()
@@ -1614,9 +1656,7 @@ pub fn backup_import(
 
     // Write the safety snapshot to disk so the user can roll back if needed.
     if let Some(snapshot_json) = safety_snapshot_json {
-        let mut snap_path = dirs::config_dir()
-            .unwrap_or_else(|| std::path::PathBuf::from("."))
-            .join("termimus");
+        let mut snap_path = crate::db::data_dir();
         let _ = std::fs::create_dir_all(&snap_path);
         snap_path.push("auto-backup-pre-restore.json");
         let path_str = snap_path.to_string_lossy().to_string();

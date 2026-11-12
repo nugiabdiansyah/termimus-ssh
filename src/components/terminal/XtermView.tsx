@@ -29,6 +29,10 @@ import {
 } from "../../lib/terminalThemes";
 import { TerminalHighlighter } from "../../lib/terminalHighlighter";
 import { findPaneContainingTab } from "../../lib/layoutTree";
+import { attachAndroidImeInput, isAndroidWebView } from "../../lib/androidImeInput";
+import { writeOrdered } from "../../lib/orderedWrite";
+import { isMobile } from "../../lib/platform";
+import { TerminalKeyBar } from "../mobile/TerminalKeyBar";
 import { ConnectionProgress, ConnectionLog } from "./ConnectionProgress";
 import { TerminalSearchBar } from "./TerminalSearchBar";
 import { useAiStore, AI_COPILOT_SHORTCUT_LABEL, aiBusyMessage } from "../../stores/useAiStore";
@@ -883,6 +887,8 @@ export function XtermView({ sessionId, hostId, visible, isFocused = true }: Xter
       searchAddonRef.current = searchAddon;
 
       term.open(domWrapper);
+      // Android soft keyboards need their own input path; see androidImeInput.ts.
+      if (isAndroidWebView()) attachAndroidImeInput(term);
 
       // Ensure xterm recalculates metrics once custom webfonts finish loading
       if (typeof document !== "undefined" && document.fonts?.ready) {
@@ -957,7 +963,8 @@ export function XtermView({ sessionId, hostId, visible, isFocused = true }: Xter
           const writeFn = (targetTab?.isLocal || tid.startsWith("local-"))
             ? api.writeLocalPty
             : api.writeSsh;
-          writeFn(tid, bytes).catch((e) => console.error("terminal write failed:", e));
+          // Ordered per session: concurrent invokes can overtake each other.
+          writeOrdered(tid, bytes, writeFn);
         }
       });
 
@@ -1185,9 +1192,12 @@ export function XtermView({ sessionId, hostId, visible, isFocused = true }: Xter
       <div
         ref={containerRef}
         onContextMenu={handleContextMenu}
-        className="absolute inset-0 p-2"
+        className={isMobile ? "absolute inset-x-0 top-0 bottom-10 p-2" : "absolute inset-0 p-2"}
         style={{ backgroundColor: themeBg }}
       />
+
+      {/* Mobile: Esc / Tab / Ctrl / arrows the soft keyboard does not have */}
+      {isMobile && <TerminalKeyBar termRef={termRef} />}
 
       {/* Right-Click Terminal Context Menu */}
       {contextMenu && (

@@ -80,4 +80,9 @@ export const sftpId: typeof sftpEn = {
     cancel: "Batal",
     filesCount: "{{done}}/{{total}} berkas",
   },
+  // Mobile single-pane layout: transfer button under the active pane.
+  sendTo: "Kirim {{count}} ke {{target}}",
+  // Android: copy files chosen in the system file picker into the local pane.
+  importFromPhone: "Tambah file dari ponsel",
+  importingFromPhone: "Menambahkan file…",
 };

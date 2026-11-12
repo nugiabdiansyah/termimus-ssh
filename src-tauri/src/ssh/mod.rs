@@ -23,6 +23,23 @@ pub fn configure_tcp_stream(stream: &tokio::net::TcpStream) {
     let _ = socket2::SockRef::from(stream).set_tcp_keepalive(&keepalive);
 }
 
+/// Upper bound for establishing the TCP connection to a host.
+pub const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+
+/// `TcpStream::connect` with a deadline. A bare connect to an address that
+/// silently drops packets (firewalled port, unroutable network, VPN that
+/// blackholes the route) waits for the OS timeout, which can be minutes and
+/// leaves the UI stuck on "connecting" with no error.
+pub async fn connect_tcp(address: &str, port: u16) -> std::io::Result<tokio::net::TcpStream> {
+    match tokio::time::timeout(CONNECT_TIMEOUT, tokio::net::TcpStream::connect((address, port))).await {
+        Ok(result) => result,
+        Err(_) => Err(std::io::Error::new(
+            std::io::ErrorKind::TimedOut,
+            format!("no response from {address}:{port} after {}s", CONNECT_TIMEOUT.as_secs()),
+        )),
+    }
+}
+
 /// Creates a standard `russh::client::Config` with SSH-level keepalive enabled.
 /// Sends `keepalive@openssh.com` probes every 15 seconds to ensure sessions
 /// (interactive shells, long-running monitoring like btop/htop, SFTP, tunnels)
@@ -589,7 +606,7 @@ impl SessionManager {
         let (socket, jump_handle) = if let Some(jump) = jump_host {
             emit_progress(1, "connecting", &format!("Connecting to Bastion / Jump Host {}:{}...", jump.address, jump.port), false);
 
-            let jump_tcp = match tokio::net::TcpStream::connect((jump.address.as_str(), jump.port)).await {
+            let jump_tcp = match connect_tcp(jump.address.as_str(), jump.port).await {
                 Ok(s) => {
                     configure_tcp_stream(&s);
                     s
@@ -655,7 +672,7 @@ impl SessionManager {
         } else {
             emit_progress(1, "connecting", &format!("Resolving and connecting to {address}:{port}..."), false);
 
-            let s = match tokio::net::TcpStream::connect((address.as_str(), port)).await {
+            let s = match connect_tcp(address.as_str(), port).await {
                 Ok(s) => {
                     configure_tcp_stream(&s);
                     s
@@ -1108,7 +1125,11 @@ pub async fn detect_os_via_exec(
             db: db.clone(),
             forwarded_tcpip: None,
         };
-        let mut handle = russh::client::connect(config, (address.as_str(), port), handler)
+        let socket = connect_tcp(address.as_str(), port)
+            .await
+            .map_err(|e| format!("Connection failed: {e}"))?;
+        configure_tcp_stream(&socket);
+        let mut handle = client::connect_stream(config, socket, handler)
             .await
             .map_err(|e| e.to_string())?;
 

@@ -20,6 +20,7 @@ import {
   SlidersHorizontal,
   Sparkles,
 } from "lucide-react";
+import { isAndroidWebView } from "../../lib/androidImeInput";
 import { useTranslation } from "react-i18next";
 import { GeneralTab } from "./GeneralTab";
 import { BackupRestoreSection } from "../vault/BackupRestoreSection";
@@ -358,7 +359,7 @@ function SecurityVaultTab() {
                 <span>{t("settings.security.keyringTitle")}</span>
               </div>
               <p className="text-[11px] text-[var(--text-muted)] leading-relaxed">
-                {t("settings.security.keyringDesc")}
+                {t(isAndroidWebView() ? "settings.security.keyringDescAndroid" : "settings.security.keyringDesc")}
               </p>
               {keyringError && (
                 <p className="text-[11px] text-[var(--danger)] flex items-center gap-1.5 pt-1.5 font-medium">

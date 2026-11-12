@@ -21,6 +21,7 @@ import { FileEntry } from "../../lib/api";
 import { formatBytes, formatDate, parentPath } from "../../lib/format";
 import { useConfirmStore } from "../../stores/useConfirmStore";
 import { SelectMods } from "../../stores/useSftpStore";
+import { isMobile } from "../../lib/platform";
 
 interface FilePaneProps {
   title?: string;
@@ -49,9 +50,13 @@ type SortDir = "asc" | "desc";
 
 // Fixed row height and a shared grid template keep the virtual window math
 // exact; rows only participate in layout for the visible slice.
-const ROW_HEIGHT = 30;
-const GRID_COLS =
-  "grid grid-cols-[minmax(0,1fr)_5rem_8rem_5rem_2rem] items-center";
+// Mobile gets taller, touch-sized rows and only the columns that fit a phone:
+// a selection checkbox, the name and the size. Modified/kind and the hover
+// actions are dropped there (delete/edit stay reachable via long-press menu).
+const ROW_HEIGHT = isMobile ? 44 : 30;
+const GRID_COLS = isMobile
+  ? "grid grid-cols-[2.5rem_minmax(0,1fr)_4.5rem] items-center"
+  : "grid grid-cols-[minmax(0,1fr)_5rem_8rem_5rem_2rem] items-center";
 const OVERSCAN_ROWS = 8;
 
 function SortHeaderCell({
@@ -557,6 +562,7 @@ export const FilePane = memo(function FilePane({
               data-file-header=""
               className={`sticky top-0 z-10 h-8 border-b border-[var(--border)] bg-[var(--sidebar)] text-[10px] uppercase text-[var(--text-muted)] ${GRID_COLS}`}
             >
+              {isMobile && <div role="columnheader" />}
               <SortHeaderCell
                 label={t("sftp.colName")}
                 columnKey="name"
@@ -573,23 +579,27 @@ export const FilePane = memo(function FilePane({
                 onSort={handleSortClick}
                 className="pr-2 text-right"
               />
-              <SortHeaderCell
-                label={t("sftp.colModified")}
-                columnKey="modified"
-                sortKey={sortKey}
-                sortDir={sortDir}
-                onSort={handleSortClick}
-                className="pr-3 text-right"
-              />
-              <SortHeaderCell
-                label={t("sftp.colKind")}
-                columnKey="kind"
-                sortKey={sortKey}
-                sortDir={sortDir}
-                onSort={handleSortClick}
-                className="pr-2 text-right"
-              />
-              <div role="columnheader" />
+              {!isMobile && (
+                <>
+                  <SortHeaderCell
+                    label={t("sftp.colModified")}
+                    columnKey="modified"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onSort={handleSortClick}
+                    className="pr-3 text-right"
+                  />
+                  <SortHeaderCell
+                    label={t("sftp.colKind")}
+                    columnKey="kind"
+                    sortKey={sortKey}
+                    sortDir={sortDir}
+                    onSort={handleSortClick}
+                    className="pr-2 text-right"
+                  />
+                  <div role="columnheader" />
+                </>
+              )}
             </div>
             <div role="presentation" style={{ height: totalRows * ROW_HEIGHT, position: "relative" }}>
               <div
@@ -803,18 +813,51 @@ const FileRow = memo(function FileRow({
     <div
       role="row"
       data-file-row=""
-      onClick={(e) =>
-        onSelect(entry, { shift: e.shiftKey, mod: e.metaKey || e.ctrlKey })
-      }
-      onDoubleClick={() => onDoubleClick(entry)}
+      onClick={(e) => {
+        if (isMobile) {
+          // Touch has no double-click or modifier keys: a tap opens folders
+          // and toggles files; the checkbox selects either.
+          if (entry.is_dir) onDoubleClick(entry);
+          else onSelect(entry, { shift: false, mod: true });
+          return;
+        }
+        onSelect(entry, { shift: e.shiftKey, mod: e.metaKey || e.ctrlKey });
+      }}
+      onDoubleClick={isMobile ? undefined : () => onDoubleClick(entry)}
       onContextMenu={(e) => onContextMenu?.(e, entry)}
-      className={`group ${GRID_COLS} h-[30px] cursor-pointer select-none border-b border-[var(--border)]/30 transition-colors ${
+      style={{ height: ROW_HEIGHT }}
+      className={`group ${GRID_COLS} cursor-pointer select-none border-b border-[var(--border)]/30 transition-colors ${
         isSelected
           ? "bg-[var(--accent)]/20 text-[var(--text-primary)]"
           : "hover:bg-[var(--card)] text-[var(--text-primary)]"
       }`}
     >
-      <div role="gridcell" className="flex min-w-0 items-center gap-2 pl-3">
+      {isMobile && (
+        <div role="gridcell" className="flex h-full items-center justify-center">
+          <button
+            type="button"
+            role="checkbox"
+            aria-checked={isSelected}
+            aria-label={entry.name}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect(entry, { shift: false, mod: true });
+            }}
+            className="flex h-full w-full items-center justify-center"
+          >
+            <span
+              className={`flex h-[18px] w-[18px] items-center justify-center rounded border ${
+                isSelected
+                  ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--on-primary)]"
+                  : "border-[var(--border-subtle)]"
+              }`}
+            >
+              {isSelected && <Check size={13} strokeWidth={3} />}
+            </span>
+          </button>
+        </div>
+      )}
+      <div role="gridcell" className={`flex min-w-0 items-center gap-2 ${isMobile ? "" : "pl-3"}`}>
         {entry.is_dir ? (
           <Folder size={14} className="shrink-0 text-[var(--accent)]" />
         ) : (
@@ -825,6 +868,8 @@ const FileRow = memo(function FileRow({
       <div role="gridcell" className="pr-2 text-right text-[11px] text-[var(--text-muted)]">
         {entry.is_dir ? "-" : formatBytes(entry.size)}
       </div>
+      {!isMobile && (
+      <>
       <div role="gridcell" className="pr-3 text-right text-[11px] text-[var(--text-muted)]">
         {formatDate(entry.modified)}
       </div>
@@ -854,6 +899,8 @@ const FileRow = memo(function FileRow({
           </button>
         </div>
       </div>
+      </>
+      )}
     </div>
   );
 });

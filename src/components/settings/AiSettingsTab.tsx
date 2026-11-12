@@ -81,7 +81,7 @@ export function AiSettingsTab() {
       )}
       {/* Overview Card */}
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface-container-low)] p-5">
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4 max-sm:flex-col">
           <div className="flex items-start gap-3.5">
             <div className="p-2.5 rounded-xl bg-[var(--primary)]/10 text-[var(--primary)] border border-[var(--primary)]/20 shrink-0">
               <Sparkles className="w-5 h-5" />

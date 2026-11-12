@@ -31,4 +31,6 @@ export const navigationId: typeof navigationEn = {
   closeTab: "Tutup Tab",
   closeOtherTabs: "Tutup Tab Lainnya",
   closeTabsToRight: "Tutup Tab di Sebelah Kanan",
+  // Compact labels for the mobile bottom navigation bar.
+  short: { hosts: "Host", keychain: "Kunci", sftp: "SFTP", snippets: "Cuplikan", tunnels: "Tunnel", settings: "Setelan" },
 };
