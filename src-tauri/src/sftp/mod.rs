@@ -11,7 +11,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::{Duration, Instant, UNIX_EPOCH};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
-use tauri::AppHandle;
+use tauri::{AppHandle, Emitter};
 use tokio::sync::Mutex;
 
 use crate::db::Database;
@@ -31,18 +31,24 @@ pub struct SftpConnection {
     pub session_id: String,
     pub host_id: String,
     pub sftp: SftpSession,
-    // Keep the russh handle alive so the connection stays open
-    _handle: Handle<SshClientHandler>,
+    // Keeps the connection open, and tells the liveness watcher when it closed.
+    handle: Handle<SshClientHandler>,
 }
 
+/// How often a live connection is checked for having died on its own.
+const LIVENESS_POLL: Duration = Duration::from_secs(2);
+/// Emitted with the session id when a connection is found dead (server gone,
+/// network dropped, keepalive timeout) rather than closed by the user.
+const SESSION_CLOSED_EVENT: &str = "sftp-session-closed";
+
 pub struct SftpManager {
-    connections: Mutex<HashMap<String, Arc<SftpConnection>>>,
+    connections: Arc<Mutex<HashMap<String, Arc<SftpConnection>>>>,
 }
 
 impl SftpManager {
     pub fn new() -> Self {
         SftpManager {
-            connections: Mutex::new(HashMap::new()),
+            connections: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 
@@ -112,13 +118,50 @@ impl SftpManager {
             session_id: session_id.clone(),
             host_id,
             sftp,
-            _handle: handle,
+            handle,
         });
 
-        let mut connections = self.connections.lock().await;
-        connections.insert(session_id, conn);
+        self.connections.lock().await.insert(session_id, conn.clone());
+        Self::watch_liveness(app, self.connections.clone(), &conn);
 
         Ok(initial_path)
+    }
+
+    /// Notice when a connection dies without the user disconnecting it.
+    ///
+    /// Nothing else would: a dead connection only surfaces as an error on the
+    /// next file operation, and until then the frontend keeps treating the
+    /// pane as connected (on Android that also keeps the keep-alive service
+    /// and its notification running for a session that no longer exists).
+    ///
+    /// The task holds only a `Weak`, so it never keeps a connection alive
+    /// after `disconnect` drops it; it ends as soon as the connection is gone.
+    fn watch_liveness(
+        app: AppHandle,
+        connections: Arc<Mutex<HashMap<String, Arc<SftpConnection>>>>,
+        conn: &Arc<SftpConnection>,
+    ) {
+        let weak = Arc::downgrade(conn);
+        tauri::async_runtime::spawn(async move {
+            loop {
+                tokio::time::sleep(LIVENESS_POLL).await;
+                let Some(conn) = weak.upgrade() else { return };
+                if !conn.handle.is_closed() {
+                    continue;
+                }
+                let session_id = conn.session_id.clone();
+                let mut map = connections.lock().await;
+                // Only report a connection that is still the registered one;
+                // the user may have disconnected or reconnected meanwhile.
+                let still_registered = map.get(&session_id).is_some_and(|c| Arc::ptr_eq(c, &conn));
+                if still_registered {
+                    map.remove(&session_id);
+                    drop(map);
+                    let _ = app.emit(SESSION_CLOSED_EVENT, &session_id);
+                }
+                return;
+            }
+        });
     }
 
     pub async fn list(&self, session_id: &str, path: &str) -> Result<Vec<FileEntry>, String> {

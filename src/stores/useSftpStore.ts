@@ -309,6 +309,8 @@ export interface SftpState {
   connectRightRemote: (host: Host) => Promise<void>;
   connectRemote: (host: Host) => Promise<void>; // alias to connectRightRemote
   disconnectRight: () => Promise<void>;
+  /** A connection died on its own (reported by the backend): drop it from the UI. */
+  handleSessionLost: (sessionId: string) => void;
   disconnectRemote: () => Promise<void>; // alias to disconnectRight
 
   // Generic Pane Operations
@@ -759,6 +761,32 @@ export const useSftpStore = create<SftpState>((set, get) => {
       return get().disconnectRight();
     },
 
+    handleSessionLost: (sessionId: string) => {
+      const { leftSessionId, rightSessionId, leftHost, rightHost } = get();
+      if (sessionId === rightSessionId) {
+        // Same reset as disconnectRight, minus the backend call: the session
+        // is already gone there.
+        set({
+          rightHost: null,
+          rightSessionId: null,
+          rightEntries: [],
+          selectedRightFiles: [],
+          rightAnchorPath: null,
+          remoteHost: null,
+          remoteSessionId: null,
+          remoteEntries: [],
+          selectedRemoteFiles: [],
+          remoteAnchorPath: null,
+          error: `SFTP connection to ${rightHost?.label ?? "the server"} was lost.`,
+        });
+      } else if (sessionId === leftSessionId) {
+        const label = leftHost?.label ?? "the server";
+        void get()
+          .setLeftSourceLocal()
+          .then(() => set({ error: `SFTP connection to ${label} was lost.` }));
+      }
+    },
+
     navigatePane: async (pane: SftpPane, path: string) => {
       const isLeft = pane === "left";
       if (isLeft) {
@@ -1096,3 +1124,10 @@ export const useSftpStore = create<SftpState>((set, get) => {
 listen<TransferProgressEvent>("sftp-transfer-progress", (e) => {
   useSftpStore.getState().applyTransferBytes(e.payload);
 }).catch(() => {});
+
+// The backend watches each SFTP connection and reports the ones that die on
+// their own; without this the pane (and the Android keep-alive service) would
+// keep treating a dead session as connected until the next file operation.
+void listen<string>("sftp-session-closed", (event) => {
+  useSftpStore.getState().handleSessionLost(event.payload);
+});
