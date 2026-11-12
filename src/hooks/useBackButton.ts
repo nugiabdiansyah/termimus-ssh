@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { exit, onBackButtonPress } from "@tauri-apps/api/app";
 import { isMobile } from "../lib/platform";
+import { runBackHandlers } from "../lib/backHandlers";
 import type { ActiveTab } from "../components/layout/Sidebar";
 
 /** Second press must land within this window to leave the app. */
@@ -36,6 +37,7 @@ function dismissOverlay(overlay: HTMLElement) {
  * killing every live SSH session. Order of precedence:
  *
  * 1. An open modal is dismissed.
+ * 1b. A page showing a nested level goes back up one (lib/backHandlers).
  * 2. Any page other than Hosts (including the terminal) returns to Hosts;
  *    terminal sessions keep running in the background.
  * 3. On Hosts, a second press within two seconds exits; the first only
@@ -80,6 +82,9 @@ export function useBackButton(activeNav: ActiveTab, goHome: () => void): { exitH
         }, DISMISS_SETTLE_MS);
         return;
       }
+      // A page showing a nested level (e.g. an open settings section) goes
+      // up one level before the app leaves the page.
+      if (runBackHandlers()) return;
       if (activeNavRef.current !== "hosts") {
         goHomeRef.current();
         return;

@@ -19,8 +19,12 @@ import {
   Cloud,
   SlidersHorizontal,
   Sparkles,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { isAndroidWebView } from "../../lib/androidImeInput";
+import { isMobile } from "../../lib/platform";
+import { registerBackHandler } from "../../lib/backHandlers";
 import { useTranslation } from "react-i18next";
 import { GeneralTab } from "./GeneralTab";
 import { BackupRestoreSection } from "../vault/BackupRestoreSection";
@@ -40,9 +44,18 @@ import { api } from "../../lib/api";
 
 type SettingsTab = "general" | "security" | "terminal" | "sync" | "ai" | "known_hosts" | "backup";
 
-export function SettingsView() {
+interface SettingsViewProps {
+  /** Whether the Settings page is the one on screen (pages stay mounted). */
+  active?: boolean;
+}
+
+export function SettingsView({ active = true }: SettingsViewProps) {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<SettingsTab>("general");
+  // Mobile: sections are a list you drill into, not a tab strip. Seven tabs
+  // do not fit a phone, and a strip that scrolls sideways hides most of them.
+  const [mobileListOpen, setMobileListOpen] = useState(true);
+  const showMobileList = isMobile && mobileListOpen;
   const { knownHosts } = useKnownHostsStore();
   const { hasUpdate } = useUpdateStore();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -68,11 +81,41 @@ export function SettingsView() {
     { id: "backup", label: t("settings.tabs.backup"), icon: Archive },
   ];
 
+  const openSection = (id: SettingsTab) => {
+    setActiveTab(id);
+    setMobileListOpen(false);
+    scrollContainerRef.current?.scrollTo({ top: 0, behavior: "instant" });
+  };
+
+  // Android Back from an open section returns to the section list, but only
+  // while Settings is the page on screen (it stays mounted when hidden).
+  useEffect(() => {
+    if (!isMobile || !active || mobileListOpen) return;
+    return registerBackHandler(() => {
+      setMobileListOpen(true);
+      return true;
+    });
+  }, [active, mobileListOpen]);
+
+  const activeTabLabel = tabs.find((tab) => tab.id === activeTab)?.label ?? "";
+
   return (
     <div className="flex h-full w-full flex-col bg-[var(--canvas)] select-none overflow-hidden">
       {/* ── Fixed Top Header & Navigation ─────────────────────────────────── */}
-      <div className="shrink-0 border-b border-[var(--border)] bg-[var(--surface-container)]/30 px-6 pt-5 pb-4 backdrop-blur-xs">
+      <div className={`shrink-0 border-b border-[var(--border)] bg-[var(--surface-container)]/30 backdrop-blur-xs ${isMobile ? "px-4 py-3" : "px-6 pt-5 pb-4"}`}>
         <div className="flex flex-col gap-4">
+          {isMobile && !mobileListOpen ? (
+            <button
+              type="button"
+              onClick={() => setMobileListOpen(true)}
+              className="-ml-1.5 flex min-w-0 items-center gap-1 self-start rounded-lg py-1 pr-2 text-left"
+            >
+              <ChevronLeft size={20} className="shrink-0 text-[var(--text-muted)]" />
+              <span className="truncate text-base font-semibold tracking-tight text-[var(--text-primary)]">
+                {activeTabLabel}
+              </span>
+            </button>
+          ) : (
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-lg font-semibold text-[var(--text-primary)] tracking-tight">
@@ -83,9 +126,10 @@ export function SettingsView() {
               </p>
             </div>
           </div>
+          )}
 
           {/* ── Native Segmented Tab Control ──────────────────────────────── */}
-          <div className="flex items-center overflow-x-auto py-0.5">
+          <div className={isMobile ? "hidden" : "flex items-center overflow-x-auto py-0.5"}>
             <nav
               role="tablist"
               aria-label="Settings sections"
@@ -143,9 +187,42 @@ export function SettingsView() {
       {/* ── Scrollable Tab Content ────────────────────────────────────────── */}
       <div
         ref={scrollContainerRef}
-        className="flex-1 overflow-y-auto px-6 py-5 [scrollbar-gutter:stable]"
+        className={`flex-1 overflow-y-auto [scrollbar-gutter:stable] ${isMobile ? "px-4 py-4" : "px-6 py-5"}`}
       >
-        <div className="w-full">
+        {/* Mobile: section list */}
+        {showMobileList && (
+          <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface-low)]">
+            {tabs.map(({ id, label, icon: Icon, badge, badgeDot }, index) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => openSection(id)}
+                className={`flex w-full items-center gap-3 px-4 py-3.5 text-left active:bg-[var(--surface-container)] ${
+                  index > 0 ? "border-t border-[var(--border)]" : ""
+                }`}
+              >
+                {/* No border here on purpose: a rounded box with both a translucent
+                    fill and a translucent border, repeated down the list, made the
+                    Android WebView paint the whole screen over the rows. */}
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[var(--primary)]/10 text-[var(--primary)]">
+                  <Icon size={17} />
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--text-primary)]">
+                  {label}
+                </span>
+                {badge !== undefined && (
+                  <span className="rounded-full bg-[var(--surface-highest)] px-2 py-0.5 font-mono text-[11px] text-[var(--text-muted)]">
+                    {badge}
+                  </span>
+                )}
+                {badgeDot && <span className="h-2 w-2 rounded-full bg-[var(--primary)]" />}
+                <ChevronRight size={18} className="shrink-0 text-[var(--text-muted)]" />
+              </button>
+            ))}
+          </div>
+        )}
+
+        <div className={showMobileList ? "hidden" : "w-full"}>
           {activeTab === "general" && <GeneralTab />}
           {activeTab === "security" && <SecurityVaultTab />}
           {activeTab === "terminal" && <TerminalThemeTab />}

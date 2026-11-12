@@ -227,7 +227,7 @@ function App() {
 
           {visitedTabs.has("settings") && (
             <PageView active={activeNav === "settings"}>
-              <SettingsView />
+              <SettingsView active={activeNav === "settings"} />
             </PageView>
           )}
         </main>
